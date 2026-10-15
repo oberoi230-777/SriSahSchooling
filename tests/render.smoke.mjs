@@ -66,31 +66,38 @@ test('public homepage, journal dialog and portal sign-in render without runtime 
   const outDir = fs.mkdtempSync(path.join(os.tmpdir(), 'srisah-render-'));
   const buildErrors = [];
   try {
-    await build({
-      root: path.join(root, 'web'),
-      plugins: [react(), {
-        name: 'render-smoke-hero-stub',
-        enforce: 'pre',
-        resolveId(source, importer) {
-          if (source === './HeroScene.jsx' && importer?.endsWith('/web/src/PublicSite.jsx')) return heroStub;
-          return null;
+    const previousNodeEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'production';
+    try {
+      await build({
+        root: path.join(root, 'web'),
+        plugins: [react(), {
+          name: 'render-smoke-hero-stub',
+          enforce: 'pre',
+          resolveId(source, importer) {
+            if (source === './HeroScene.jsx' && importer?.endsWith('/web/src/PublicSite.jsx')) return heroStub;
+            return null;
+          },
+        }],
+        logLevel: 'error',
+        build: {
+          outDir,
+          emptyOutDir: true,
+          copyPublicDir: false,
+          lib: { entry, name: 'SriSahRenderSmoke', formats: ['iife'], fileName: () => 'site.smoke.js' },
+          cssCodeSplit: false,
+          rollupOptions: { output: { inlineDynamicImports: true } },
         },
-      }],
-      logLevel: 'error',
-      build: {
-        outDir,
-        emptyOutDir: true,
-        copyPublicDir: false,
-        lib: { entry, name: 'SriSahRenderSmoke', formats: ['iife'], fileName: () => 'site.smoke.js' },
-        cssCodeSplit: false,
-        rollupOptions: { output: { inlineDynamicImports: true } },
-      },
-      define: { 'process.env.NODE_ENV': '"production"' },
-      onwarn(warning, warn) {
-        buildErrors.push(warning.message);
-        warn(warning);
-      },
-    });
+        define: { 'process.env.NODE_ENV': '"production"' },
+        onwarn(warning, warn) {
+          buildErrors.push(warning.message);
+          warn(warning);
+        },
+      });
+    } finally {
+      if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+      else process.env.NODE_ENV = previousNodeEnv;
+    }
     const files = fs.readdirSync(outDir, { withFileTypes: true }).flatMap((entry) => {
       const full = path.join(outDir, entry.name);
       return entry.isDirectory() ? fs.readdirSync(full).map((name) => path.join(full, name)) : [full];
