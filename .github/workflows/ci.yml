@@ -71,7 +71,20 @@ jobs:
         run: npm run test:render
 
       - name: End-to-end API tests
-        run: npm run test:e2e
+        shell: bash
+        run: |
+          set +e
+          npm run test:e2e 2>&1 | tee /tmp/srisah-e2e.log
+          result=${PIPESTATUS[0]}
+          set -e
+          if (( result != 0 )); then
+            while IFS= read -r line; do
+              line=${line//%/%25}
+              line=${line//$'\r'/%0D}
+              echo "::error title=E2E failure::$line"
+            done < <(grep -E 'not ok |error:|expected:|actual:|AssertionError|Error:' /tmp/srisah-e2e.log | tail -n 20 || true)
+          fi
+          exit "$result"
 
       - name: Row level security integration test
         run: npm run test:integration
