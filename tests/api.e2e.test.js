@@ -29,7 +29,7 @@ process.env.PUBLIC_ORIGIN ||= 'http://127.0.0.1:4321';
 process.env.ALLOWED_ORIGINS ||= 'http://127.0.0.1:4321';
 
 const ORIGIN = new URL(process.env.ALLOWED_ORIGINS.split(',')[0].trim()).origin;
-const TEST_ORIGIN_HEADER = process.env.NODE_ENV === 'production' ? ORIGIN : 'http://127.0.0.1:4321';
+const TEST_ORIGIN_HEADER = ORIGIN;
 
 const ADMIN_PASSWORD = 'AdminPassw0rd!2026';
 const PARENT_PASSWORD = 'ParentPassw0rd!2026';
