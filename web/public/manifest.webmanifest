@@ -1,0 +1,27 @@
+{
+  "id": "/portal",
+  "name": "SriSah Schooling",
+  "short_name": "SriSah",
+  "description": "A private learning portal for students, families and teachers. Homework, classes, attendance, progress and teacher updates in one secure place.",
+  "lang": "en-IN",
+  "dir": "ltr",
+  "start_url": "/portal",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "any",
+  "background_color": "#f7f5fc",
+  "theme_color": "#3c1f7a",
+  "categories": ["education", "productivity"],
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Attendance", "short_name": "Attendance", "url": "/portal?page=attendance" },
+    { "name": "Homework", "short_name": "Homework", "url": "/portal?page=homework" },
+    { "name": "Messages", "short_name": "Messages", "url": "/portal?page=messages" }
+  ]
+}

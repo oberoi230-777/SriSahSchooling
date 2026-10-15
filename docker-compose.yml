@@ -1,0 +1,85 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-srisah_schooling}
+      POSTGRES_USER: ${POSTGRES_USER:-srisah_migrator}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?Set APP_DB_PASSWORD in .env}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./docker/postgres-init/01-app-role.sh:/docker-entrypoint-initdb.d/01-app-role.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    networks: [private]
+
+  app:
+    build: .
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DATABASE_URL: postgres://srisah_app:${APP_DB_PASSWORD:?Set APP_DB_PASSWORD in .env}@db:5432/${POSTGRES_DB:-srisah_schooling}
+      DATABASE_SSL: "false"
+      DB_POOL_SIZE: ${DB_POOL_SIZE:-10}
+      PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:?Set PUBLIC_ORIGIN to the public HTTPS origin}
+      PUBLIC_SITE_ORG_SLUG: ${PUBLIC_SITE_ORG_SLUG:-srisah}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:?Set ALLOWED_ORIGINS to the public origin}
+      COOKIE_SECURE: "true"
+      TRUST_PROXY: ${TRUST_PROXY:-false}
+      RESEND_API_KEY: ${RESEND_API_KEY:?Set RESEND_API_KEY for account email}
+      EMAIL_FROM: ${EMAIL_FROM:?Set EMAIL_FROM to a verified sender}
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${APP_BIND_ADDRESS:-127.0.0.1}:${APP_PORT:-3001}:3001"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/api/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    networks: [private]
+
+  migrate:
+    build: .
+    profiles: ["ops"]
+    command: ["npm", "run", "migrate"]
+    environment:
+      NODE_ENV: production
+      MIGRATION_DATABASE_URL: postgres://${POSTGRES_USER:-srisah_migrator}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-srisah_schooling}
+      MIGRATION_DATABASE_SSL: "false"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks: [private]
+
+  bootstrap:
+    build: .
+    profiles: ["ops"]
+    command: ["npm", "run", "bootstrap"]
+    environment:
+      MIGRATION_DATABASE_URL: postgres://${POSTGRES_USER:-srisah_migrator}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-srisah_schooling}
+      BOOTSTRAP_ORG_NAME: ${BOOTSTRAP_ORG_NAME:?Set BOOTSTRAP_ORG_NAME in .env}
+      BOOTSTRAP_ORG_SLUG: ${BOOTSTRAP_ORG_SLUG:?Set BOOTSTRAP_ORG_SLUG in .env}
+      BOOTSTRAP_JOIN_CODE: ${BOOTSTRAP_JOIN_CODE:?Set BOOTSTRAP_JOIN_CODE in .env}
+      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:?Set BOOTSTRAP_ADMIN_EMAIL in .env}
+      BOOTSTRAP_ADMIN_NAME: ${BOOTSTRAP_ADMIN_NAME:?Set BOOTSTRAP_ADMIN_NAME in .env}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:?Set BOOTSTRAP_ADMIN_PASSWORD in .env}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks: [private]
+
+volumes:
+  postgres-data:
+
+networks:
+  private:
+    driver: bridge

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  SriSah never sends student data over plain HTTP. Cleartext is disabled globally and
+  user-installed certificate authorities are not trusted, so a school-managed proxy
+  cannot silently intercept sessions.
+
+  If you need to point the app at a staging server on a private LAN during testing,
+  add a <domain-config cleartextTrafficPermitted="true"> block for that host in a
+  debug-only manifest (android/app/src/debug/) and never ship it in a release build.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>
