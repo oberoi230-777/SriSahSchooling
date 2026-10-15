@@ -1,0 +1,32 @@
+{
+  "appId": "in.srisah.schooling",
+  "appName": "SriSah Schooling",
+  "webDir": "web/dist-android",
+  "android": {
+    "backgroundColor": "#f7f5fc",
+    "allowMixedContent": false,
+    "captureInput": true,
+    "webContentsDebuggingEnabled": false
+  },
+  "server": {
+    "androidScheme": "https",
+    "hostname": "localhost"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 1200,
+      "launchAutoHide": true,
+      "backgroundColor": "#3c1f7a",
+      "androidSplashResourceName": "splash",
+      "androidScaleType": "CENTER_CROP",
+      "showSpinner": false,
+      "splashFullScreen": true,
+      "splashImmersive": false
+    },
+    "StatusBar": {
+      "style": "DARK",
+      "backgroundColor": "#3c1f7a",
+      "overlaysWebView": false
+    }
+  }
+}

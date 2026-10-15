@@ -1,0 +1,146 @@
+apply plugin: 'com.android.application'
+
+// ---------------------------------------------------------------------------------------
+// Release signing
+// ---------------------------------------------------------------------------------------
+// Create android/keystore.properties (git-ignored) or export the equivalent environment
+// variables on the build machine. Never commit the keystore or its passwords.
+//
+//   storeFile=/absolute/path/to/srisah-release.keystore
+//   storePassword=********
+//   keyAlias=srisah
+//   keyPassword=********
+//
+def keystorePropertiesFile = rootProject.file("keystore.properties")
+def keystoreProperties = new Properties()
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
+def signingValue = { String propertyName, String envName ->
+    return keystoreProperties.getProperty(propertyName) ?: System.getenv(envName)
+}
+
+def releaseStoreFile = signingValue('storeFile', 'SRISAH_KEYSTORE_FILE')
+def releaseStorePassword = signingValue('storePassword', 'SRISAH_KEYSTORE_PASSWORD')
+def releaseKeyAlias = signingValue('keyAlias', 'SRISAH_KEY_ALIAS')
+def releaseKeyPassword = signingValue('keyPassword', 'SRISAH_KEY_PASSWORD')
+def hasReleaseSigning = releaseStoreFile && releaseStorePassword && releaseKeyAlias && releaseKeyPassword
+
+android {
+    namespace = "in.srisah.schooling"
+    compileSdk = rootProject.ext.compileSdkVersion
+
+    defaultConfig {
+        applicationId "in.srisah.schooling"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+
+        // Bump versionCode for every Play Store upload; versionName is the user-visible
+        // version. Both can be overridden per release build:
+        //   SRISAH_VERSION_CODE=7 SRISAH_VERSION_NAME=1.4.0 npm run android:release
+        versionCode Integer.parseInt(System.getenv('SRISAH_VERSION_CODE') ?: '1')
+        versionName System.getenv('SRISAH_VERSION_NAME') ?: '1.0.0'
+
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        aaptOptions {
+            // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
+            // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
+            ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+        }
+    }
+
+    signingConfigs {
+        release {
+            if (hasReleaseSigning) {
+                storeFile file(releaseStoreFile)
+                storePassword releaseStorePassword
+                keyAlias releaseKeyAlias
+                keyPassword releaseKeyPassword
+            }
+        }
+    }
+
+    buildTypes {
+        debug {
+            applicationIdSuffix ".debug"
+            versionNameSuffix "-debug"
+        }
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            if (hasReleaseSigning) {
+                signingConfig signingConfigs.release
+            }
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_21
+        targetCompatibility JavaVersion.VERSION_21
+    }
+
+    buildFeatures {
+        // BuildConfig carries VERSION_CODE/VERSION_NAME for the JVM unit tests and lets a
+        // future native build branch on staging vs production.
+        buildConfig = true
+    }
+
+    packagingOptions {
+        resources {
+            excludes += ['META-INF/*.kotlin_module', '**/*.kotlin_metadata']
+        }
+    }
+
+    bundle {
+        // Ship every language in the single AAB; the app is small and the Play language
+        // split would otherwise break the WebView locale fallback.
+        language { enableSplit = false }
+    }
+}
+
+repositories {
+    flatDir {
+        dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
+    }
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
+    implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+    implementation project(':capacitor-android')
+    testImplementation "junit:junit:$junitVersion"
+    androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
+    androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
+    implementation project(':capacitor-cordova-android-plugins')
+}
+
+apply from: 'capacitor.build.gradle'
+
+try {
+    def servicesJSON = file('google-services.json')
+    if (servicesJSON.text) {
+        apply plugin: 'com.google.gms.google-services'
+    }
+} catch (Exception e) {
+    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+}
+
+// Fail early with a clear message instead of producing an unsigned release bundle.
+gradle.taskGraph.whenReady { graph ->
+    def buildingRelease = graph.allTasks.any { it.name.toLowerCase().contains('release') && (it.name.contains('Bundle') || it.name.contains('Assemble')) }
+    if (buildingRelease && !hasReleaseSigning) {
+        logger.warn("""
+        -----------------------------------------------------------------------------------
+        SriSah: no release signing configuration found.
+        Android App Bundles must be signed before they can be uploaded to the Play Console.
+        Create android/keystore.properties (see docs/PLAY-STORE-DEPLOYMENT.md) or export
+        SRISAH_KEYSTORE_FILE / SRISAH_KEYSTORE_PASSWORD / SRISAH_KEY_ALIAS / SRISAH_KEY_PASSWORD.
+        The build will continue, but the bundle will be unsigned and rejected by Play.
+        -----------------------------------------------------------------------------------
+        """.stripIndent())
+    }
+}

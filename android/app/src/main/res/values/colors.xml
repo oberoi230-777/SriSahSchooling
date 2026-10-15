@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- SriSah violet brand palette. -->
+    <color name="colorPrimary">#3C1F7A</color>
+    <color name="colorPrimaryDark">#2A1455</color>
+    <color name="colorAccent">#6D3FD1</color>
+    <color name="srisahPurple">#6D3FD1</color>
+    <color name="srisahCanvas">#F7F5FC</color>
+    <color name="srisahWhite">#FFFFFF</color>
+    <color name="ic_launcher_background">#3C1F7A</color>
+</resources>

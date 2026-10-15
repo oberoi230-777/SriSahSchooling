@@ -1,0 +1,45 @@
+# --- Secrets ---------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+android/keystore.properties
+*.keystore
+*.jks
+*.p12
+google-services.json
+
+# --- Dependencies ----------------------------------------------------------------------
+node_modules/
+.pnpm-store/
+
+# --- Build output ----------------------------------------------------------------------
+dist/
+web/dist/
+web/dist-android/
+android/app/build/
+android/build/
+android/.gradle/
+android/capacitor-cordova-android-plugins/
+android/local.properties
+*.apk
+*.aab
+*.ap_
+release-*/
+
+# --- Local tooling ---------------------------------------------------------------------
+.vercel
+.cache/
+coverage/
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# --- Local database / backups ----------------------------------------------------------
+tmp/
+backups/
+*.dump
+*.sql.gz

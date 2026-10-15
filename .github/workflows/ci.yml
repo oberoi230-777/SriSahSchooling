@@ -1,0 +1,98 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+# Cancel an in-progress run when the same branch is pushed again.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: Build and test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: ci-migration-password
+          POSTGRES_USER: srisah_migrator
+          POSTGRES_DB: srisah_ci
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U srisah_migrator -d srisah_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      # The pipeline exercises the same two-role model as production: an owner runs the
+      # migration, while the API connects as a non-owner, NOBYPASSRLS role so that row
+      # level security is genuinely enforced during the end-to-end tests.
+      MIGRATION_DATABASE_URL: postgres://srisah_migrator:ci-migration-password@127.0.0.1:5432/srisah_ci
+      DATABASE_URL: postgres://srisah_app:ci-app-password@127.0.0.1:5432/srisah_ci
+      PUBLIC_ORIGIN: http://127.0.0.1:5173
+      ALLOWED_ORIGINS: http://127.0.0.1:5173
+      NODE_ENV: development
+      DEV_EMAIL_LOG: 'true'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Create the restricted application role
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+          PGPASSWORD=ci-migration-password psql -h 127.0.0.1 -U srisah_migrator -d srisah_ci <<'SQL'
+          CREATE ROLE srisah_app LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS PASSWORD 'ci-app-password';
+          GRANT CONNECT ON DATABASE srisah_ci TO srisah_app;
+          SQL
+
+      - name: Apply database migrations
+        run: npm run migrate
+
+      - name: Unit tests
+        run: npm run test:unit
+
+      - name: Render smoke test
+        run: npm run test:render
+
+      - name: End-to-end API tests
+        run: npm run test:e2e
+
+      - name: Row level security integration test
+        run: npm run test:integration
+
+      - name: Production web build
+        run: npm run build
+
+      - name: Android web bundle
+        run: npm run android:build:web
+
+      - name: Upload web build
+        uses: actions/upload-artifact@v4
+        with:
+          name: srisah-web-dist
+          path: web/dist
+          retention-days: 7
+
+      - name: Verify no secrets are committed
+        run: |
+          if git ls-files | grep -Ei '(^|/)\.env$|keystore\.properties$|\.jks$|\.keystore$|google-services\.json$'; then
+            echo "::error::A secret file is tracked by Git. Remove it before merging."
+            exit 1
+          fi
+          echo "No secret files tracked."
